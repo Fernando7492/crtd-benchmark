@@ -1,0 +1,1 @@
+console.log("Olá, Benchmark CRDT!");

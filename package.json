@@ -1,0 +1,36 @@
+{
+  "name": "crtd-benchmark",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Fernando7492/crtd-benchmark#readme",
+  "bugs": {
+    "url": "https://github.com/Fernando7492/crtd-benchmark/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fernando7492/crtd-benchmark.git"
+  },
+  "license": "MIT",
+  "author": "fernando emidio",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn src/index.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.3.0",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "prisma": "^6.19.2",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.2.1",
+    "@types/ws": "^8.18.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  }
+}
