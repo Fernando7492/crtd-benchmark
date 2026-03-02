@@ -1,12 +1,14 @@
-import type { RGANode, Identifier } from '../types.js';
+import type { RGANode, Identifier, PendingInsert } from '../types.js';
 
 export class RGA<T> {
     private nodes: RGANode<T>[];
     private nodeMap: Map<string, RGANode<T>>;
+    private pendingQueue: Map<string, PendingInsert<T>[]>;
 
     constructor() {
         this.nodes = [];
         this.nodeMap = new Map();
+        this.pendingQueue = new Map();
     }
     private getIdString(id: Identifier): string{
         return `${id.agentId}:${id.seq}`;
@@ -38,7 +40,18 @@ export class RGA<T> {
             const originNode = this.nodeMap.get(originString);
 
             if (!originNode) {
-                throw new Error(`Missing dependency: ${originString}`);
+                const pendingNode: PendingInsert<T> = {
+                    id,
+                    origin,
+                    value,
+                };
+                const originPending = this.pendingQueue.get(originString);
+                if(!originPending){
+                    this.pendingQueue.set(originString,[pendingNode]);
+                }else{
+                    originPending.push(pendingNode);
+                }
+                return;
             }
 
             startIndex = this.nodes.indexOf(originNode) + 1;
@@ -65,6 +78,14 @@ export class RGA<T> {
 
         this.nodeMap.set(idString, newNode);
         this.nodes.splice(insertIndex, 0, newNode);
+        
+        const pendingChildren = this.pendingQueue.get(idString);
+        if(pendingChildren){
+            this.pendingQueue.delete(idString);
+            for (const child of pendingChildren) {
+                this.insert(child.value, child.id, child.origin);
+            }
+        }
     }
 
     public delete(id: Identifier): void {
