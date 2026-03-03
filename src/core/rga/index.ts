@@ -110,4 +110,21 @@ export class RGA<T> {
         
         return result;
     }
+
+    public getRawState(): RGANode<T>[] {
+        return [...this.nodes]; 
+    }
+
+    public applyRawState(incomingNodes: RGANode<T>[]): void {
+        for (const node of incomingNodes) {
+            this.insert(node.value, node.id, node.origin);
+            
+            if (node.isDeleted) {
+                try {
+                    this.delete(node.id);
+                } catch (e) {
+                }
+            }
+        }
+    }
 }
