@@ -1,113 +1,131 @@
-import type { RGANode, Identifier, PendingInsert } from '../types.js';
+import type { RGANode, Identifier, PendingInsert } from "../types.js";
 
 export class RGA<T> {
-    private nodes: RGANode<T>[];
-    private nodeMap: Map<string, RGANode<T>>;
-    private pendingQueue: Map<string, PendingInsert<T>[]>;
+  private nodes: RGANode<T>[];
+  private nodeMap: Map<string, RGANode<T>>;
+  private pendingQueue: Map<string, PendingInsert<T>[]>;
 
-    constructor() {
-        this.nodes = [];
-        this.nodeMap = new Map();
-        this.pendingQueue = new Map();
+  constructor() {
+    this.nodes = [];
+    this.nodeMap = new Map();
+    this.pendingQueue = new Map();
+  }
+  public getIdString(id: Identifier): string {
+    return `${id.agentId}:${id.seq}`;
+  }
+
+  public compareIdentifiers(id1: Identifier, id2: Identifier): number {
+    if (id1.seq !== id2.seq) {
+      return id2.seq - id1.seq;
     }
-    private getIdString(id: Identifier): string{
-        return `${id.agentId}:${id.seq}`;
+    if (id1.agentId < id2.agentId) {
+      return 1;
+    } else if (id1.agentId > id2.agentId) {
+      return -1;
+    }
+    return 0;
+  }
+
+  public getNodes(): RGANode<T>[] {
+    return this.nodes;
+  }
+  public getNodeMap(): Map<string, RGANode<T>> {
+    return this.nodeMap;
+  }
+  public getPendingQueue(): Map<string, PendingInsert<T>[]> {
+    return this.pendingQueue;
+  }
+
+  public addNodeAtIndex(index: number, node: RGANode<T>): void {
+    this.nodes.splice(index, 0, node);
+  }
+
+  public setNodeInMap(idString: string, node: RGANode<T>): void {
+    this.nodeMap.set(idString, node);
+  }
+
+  public insert(value: T, id: Identifier, origin: Identifier | null): void {
+    const idString = this.getIdString(id);
+
+    if (this.nodeMap.has(idString)) {
+      return;
     }
 
-    private compareIdentifiers(id1: Identifier, id2: Identifier): number{
-        if(id1.seq !== id2.seq){
-            return id2.seq - id1.seq;
-        }
-        if(id1.agentId < id2.agentId){
-            return 1;
-        }else if(id1.agentId > id2.agentId){
-            return -1;
-        }
-        return 0;
-    }
+    let startIndex = 0;
 
-    public insert(value: T, id: Identifier, origin: Identifier | null): void {
-        const idString = this.getIdString(id);
+    if (origin !== null) {
+      const originString = this.getIdString(origin);
+      const originNode = this.nodeMap.get(originString);
 
-        if (this.nodeMap.has(idString)) {
-            return;
-        }
-
-        let startIndex = 0;
-
-        if (origin !== null) {
-            const originString = this.getIdString(origin);
-            const originNode = this.nodeMap.get(originString);
-
-            if (!originNode) {
-                const pendingNode: PendingInsert<T> = {
-                    id,
-                    origin,
-                    value,
-                };
-                const originPending = this.pendingQueue.get(originString);
-                if(!originPending){
-                    this.pendingQueue.set(originString,[pendingNode]);
-                }else{
-                    originPending.push(pendingNode);
-                }
-                return;
-            }
-
-            startIndex = this.nodes.indexOf(originNode) + 1;
-        }
-
-        let insertIndex = startIndex;
-
-        while (insertIndex < this.nodes.length) {
-            const currentNode = this.nodes[insertIndex]!;
-            
-            if (this.compareIdentifiers(id, currentNode.id) > 0) {
-                insertIndex++;
-            } else {
-                break;
-            }
-        }
-
-        const newNode: RGANode<T> = {
-            id,
-            origin,
-            value,
-            isDeleted: false
+      if (!originNode) {
+        const pendingNode: PendingInsert<T> = {
+          id,
+          origin,
+          value,
         };
-
-        this.nodeMap.set(idString, newNode);
-        this.nodes.splice(insertIndex, 0, newNode);
-        
-        const pendingChildren = this.pendingQueue.get(idString);
-        if(pendingChildren){
-            this.pendingQueue.delete(idString);
-            for (const child of pendingChildren) {
-                this.insert(child.value, child.id, child.origin);
-            }
+        const originPending = this.pendingQueue.get(originString);
+        if (!originPending) {
+          this.pendingQueue.set(originString, [pendingNode]);
+        } else {
+          originPending.push(pendingNode);
         }
+        return;
+      }
+
+      startIndex = this.nodes.indexOf(originNode) + 1;
     }
 
-    public delete(id: Identifier): void {
-        const idString = this.getIdString(id);
-        const node = this.nodeMap.get(idString);
+    let insertIndex = startIndex;
 
-        if (!node) {
-            throw new Error(`Node not found for deletion: ${idString}`);
-        }
+    while (insertIndex < this.nodes.length) {
+      const currentNode = this.nodes[insertIndex]!;
 
-        node.isDeleted = true;
+      if (this.compareIdentifiers(id, currentNode.id) > 0) {
+        insertIndex++;
+      } else {
+        break;
+      }
     }
 
-    public toArray(): T[] {
-        const result: T[] = [];
-        
-        for (const node of this.nodes) {
-            if (!node.isDeleted) {
-                result.push(node.value);
-            }
-        }
-        
-        return result;
+    const newNode: RGANode<T> = {
+      id,
+      origin,
+      value,
+      isDeleted: false,
+    };
+
+    this.nodeMap.set(idString, newNode);
+    this.nodes.splice(insertIndex, 0, newNode);
+
+    const pendingChildren = this.pendingQueue.get(idString);
+    if (pendingChildren) {
+      this.pendingQueue.delete(idString);
+      for (const child of pendingChildren) {
+        this.insert(child.value, child.id, child.origin);
+      }
     }
+  }
+
+  public delete(id: Identifier): void {
+    const idString = this.getIdString(id);
+    const node = this.nodeMap.get(idString);
+
+    if (!node) {
+      throw new Error(`Node not found for deletion: ${idString}`);
+    }
+
+    node.isDeleted = true;
+  }
+
+  public toArray(): T[] {
+    const result: T[] = [];
+
+    for (const node of this.nodes) {
+      if (!node.isDeleted) {
+        result.push(node.value);
+      }
+    }
+
+    return result;
+  }
 }
