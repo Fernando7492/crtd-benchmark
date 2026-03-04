@@ -1,6 +1,6 @@
 import type { NetworkPayload } from "./types.js";
 
-export interface NetworkServer{
+export interface INetworkServer{
 
     start(port:number): Promise<void>;
 
