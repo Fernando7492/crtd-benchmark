@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document{
+    id  String @id @default(uuid())
+    title String @default("untitled")
+    state Json @default("[]")
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    documentEvents DocumentEvent[]
+}
+
+model DocumentEvent{
+    id String @id @default(uuid())
+
+    document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+    documentId String
+    type String
+    payload Json
+    createdAt DateTime @default(now())
+
+    @@index([documentId, createdAt])
+}
