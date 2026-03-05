@@ -21,6 +21,7 @@ import type { Identifier } from "./core/types.js";
 interface BenchmarkMetrics {
     strategy: string;
     protocol: string;
+    database: string;
     bots: number;
     latency: number;
     jitter: number;
@@ -35,9 +36,10 @@ async function runBenchmark(
     botCount: number,
     strategyType: 'STATE' | 'OPERATION' | 'DELTA',
     protocolType: 'WS' | 'TCP_RAW' | 'WEB_TRANSPORT',
+    databaseType: 'postgres' | 'mongo',
     chaosConfig: { latency: number; jitter: number }
 ): Promise<BenchmarkMetrics> {
-    const repo = createDocumentRepository("postgres");
+    const repo = createDocumentRepository(databaseType);
     const doc = await repo.createDocument("Benchmark Stress Test");
     const docId = doc.id;
 
@@ -193,6 +195,7 @@ async function runBenchmark(
     return {
         strategy: strategyType,
         protocol: protocolType,
+        database: databaseType,
         bots: botCount,
         latency: chaosConfig.latency,
         jitter: chaosConfig.jitter,
@@ -208,30 +211,33 @@ async function runAllTests() {
     const csvFile = "resultados_benchmark.csv";
 
     if (!fs.existsSync(csvFile)) {
-        fs.writeFileSync(csvFile, "Strategy,Protocol,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
+        fs.writeFileSync(csvFile, "Strategy,Protocol,Database,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
     const protocols: Array<'WS' | 'TCP_RAW'> = ['WS', 'TCP_RAW'];
+    const databases: Array<'postgres' | 'mongo'> = ['postgres', 'mongo'];
     const botCounts = [1, 5, 10, 50, 500, 1000];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
 
-    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW', latency: number, jitter: number }> = [];
+    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW', database: 'postgres' | 'mongo', latency: number, jitter: number }> = [];
 
     for (const protocol of protocols) {
-        for (const bots of botCounts) {
-            for (const strategy of strategies) {
-                scenarios.push({ bots, strategy, protocol, latency: 50, jitter: 100 });
+        for (const database of databases) {
+            for (const bots of botCounts) {
+                for (const strategy of strategies) {
+                    scenarios.push({ bots, strategy, protocol, database, latency: 50, jitter: 100 });
+                }
             }
         }
     }
 
     for (const scenario of scenarios) {
-        process.stdout.write(`Rodando [${scenario.protocol}] ${scenario.strategy} com ${scenario.bots} bots (Jitter: ${scenario.jitter}ms)... `);
+        process.stdout.write(`Rodando [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Jitter: ${scenario.jitter}ms)... `);
 
         try {
-            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, { latency: scenario.latency, jitter: scenario.jitter });
+            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, scenario.database, { latency: scenario.latency, jitter: scenario.jitter });
 
-            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.bots},${metrics.latency},${metrics.jitter},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latency},${metrics.jitter},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
 
             fs.appendFileSync(csvFile, csvLine);
             console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
