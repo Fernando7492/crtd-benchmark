@@ -4,6 +4,7 @@ import type { StatePayload, SyncStrategy } from "./types.js";
 export class StateStrategy<T> implements SyncStrategy<StatePayload<T>> {
 
     private rga: RGA<T>;
+    public readonly strategyName: string = "STATE";
 
     constructor(rga: RGA<T>) {
         this.rga = rga;

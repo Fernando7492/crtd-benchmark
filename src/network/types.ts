@@ -1,0 +1,1 @@
+export type NetworkPayload = Record<string, any> | Array<any> | string;

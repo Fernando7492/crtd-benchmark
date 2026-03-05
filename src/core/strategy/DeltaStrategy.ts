@@ -6,15 +6,18 @@ import type { RGANode } from "../types.js";
 export class DeltaStrategy<T> implements SyncStrategy<DeltaPayload<T>>{
     
     private rga: RGA<T>;
-    private syncedIds: Set<string>;
+    private syncedInsertions: Set<string>;
+    private syncedDeletions: Set<string>;
+    public readonly strategyName: string = "DELTA";
 
     constructor(rga: RGA<T>){
         this.rga = rga;
-        this.syncedIds = new Set<string>();
+        this.syncedInsertions = new Set<string>();
+        this.syncedDeletions = new Set<string>();
     }
 
-    private getTrackingString(node: RGANode<T>): string {
-        return `${node.id.agentId}:${node.id.seq}:${node.isDeleted}`;
+    private getIdString(node: RGANode<T>): string {
+        return `${node.id.agentId}:${node.id.seq}`;
     }
     
     public generatePayload(): DeltaPayload<T> {
@@ -22,11 +25,18 @@ export class DeltaStrategy<T> implements SyncStrategy<DeltaPayload<T>>{
         const deltaNodes: RGANode<T>[] = [];
 
         for(const node of allNodes){
-            const trackStr = this.getTrackingString(node);
+            const idStr = this.getIdString(node);
+            const isInsertionSynced = this.syncedInsertions.has(idStr);
 
-            if(!this.syncedIds.has(trackStr)){
+            if(!isInsertionSynced){
                 deltaNodes.push(node);
-                this.syncedIds.add(trackStr);
+                this.syncedInsertions.add(idStr);
+                if(node.isDeleted) {
+                    this.syncedDeletions.add(idStr);
+                }
+            } else if(node.isDeleted && !this.syncedDeletions.has(idStr)){
+                deltaNodes.push(node);
+                this.syncedDeletions.add(idStr);
             }
         }
     
@@ -36,9 +46,12 @@ export class DeltaStrategy<T> implements SyncStrategy<DeltaPayload<T>>{
         this.rga.applyRawState(payload.data);
 
         for(const node of payload.data){
-            const trackStr = this.getTrackingString(node);
-            this.syncedIds.add(trackStr);
+            const idStr = this.getIdString(node);
+            this.syncedInsertions.add(idStr);
+            if(node.isDeleted) {
+                this.syncedDeletions.add(idStr);
+            }
         }
     }
-
+    
 }

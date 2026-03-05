@@ -5,6 +5,7 @@ import type { RGAOperation } from "../types.js";
 export class OperationStrategy<T> implements SyncStrategy<OperationPayload<T>,RGAOperation<T>>{
     
     private rga: RGA<T>;
+    public readonly strategyName: string = "OPERATION";
 
     constructor(rga: RGA<T>){
         this.rga = rga;    

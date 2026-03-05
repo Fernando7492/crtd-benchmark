@@ -15,4 +15,5 @@ export interface DeltaPayload<T>{
 export interface SyncStrategy<P, I = void>{
     generatePayload(data: I):P;
     applyPayload(payload:P):void;
+    readonly strategyName: string;
 }
