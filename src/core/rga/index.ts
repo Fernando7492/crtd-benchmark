@@ -4,11 +4,13 @@ export class RGA<T> {
     private nodes: RGANode<T>[];
     private nodeMap: Map<string, RGANode<T>>;
     private pendingQueue: Map<string, PendingInsert<T>[]>;
+    private pendingDeletes: Set<string>;
 
     constructor() {
         this.nodes = [];
         this.nodeMap = new Map();
         this.pendingQueue = new Map();
+        this.pendingDeletes = new Set();
     }
     private getIdString(id: Identifier): string{
         return `${id.agentId}:${id.seq}`;
@@ -73,8 +75,12 @@ export class RGA<T> {
             id,
             origin,
             value,
-            isDeleted: false
+            isDeleted: this.pendingDeletes.has(idString)
         };
+
+        if(newNode.isDeleted){
+            this.pendingDeletes.delete(idString);
+        }
 
         this.nodeMap.set(idString, newNode);
         this.nodes.splice(insertIndex, 0, newNode);
@@ -93,7 +99,8 @@ export class RGA<T> {
         const node = this.nodeMap.get(idString);
 
         if (!node) {
-            throw new Error(`Node not found for deletion: ${idString}`);
+            this.pendingDeletes.add(idString);
+            return;
         }
 
         node.isDeleted = true;

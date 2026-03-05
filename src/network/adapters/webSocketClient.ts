@@ -5,6 +5,7 @@ import { WebSocket } from "ws";
 export class WebSocketClient implements INetworkClient{
 
     private socket: WebSocket|null = null;
+    private receiveCallback: ((payload: NetworkPayload) => void) | null = null;
 
     connect(connectUrl: string): Promise<void> {
         return new Promise((resolve, reject)=>{
@@ -12,6 +13,12 @@ export class WebSocketClient implements INetworkClient{
 
             this.socket.on("open",resolve);
             this.socket.on("error",reject);
+            this.socket.on("message",(data)=>{
+                if(this.receiveCallback){
+                    const networkPayload:NetworkPayload = JSON.parse(data.toString());
+                    this.receiveCallback(networkPayload);
+                }
+            });
         })
     }
     send(payload: NetworkPayload): Promise<void> {
@@ -26,12 +33,7 @@ export class WebSocketClient implements INetworkClient{
         })
     }
     onReceive(callback: (payload: NetworkPayload) => void): void {
-        if(this.socket){
-            this.socket.on("message",(data)=>{
-                const networkPayload:NetworkPayload = JSON.parse(data.toString());
-                callback(networkPayload);
-            })
-        }
+        this.receiveCallback = callback;
     }
     disconnect(): Promise<void> {
         return new Promise((resolve)=>{

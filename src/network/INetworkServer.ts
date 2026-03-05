@@ -6,7 +6,7 @@ export interface INetworkServer{
 
     onReceive(callback:(clientId:string,payload:NetworkPayload)=>void):void;
 
-    broadcast(payload:NetworkPayload, excludeClienteId?:string):Promise<void>;
+    broadcast(payload:NetworkPayload, excludeClientId?:string):Promise<void>;
 
     stop():Promise<void>;
 }

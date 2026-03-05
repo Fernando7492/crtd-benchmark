@@ -44,10 +44,10 @@ export class WebSocketServer implements INetworkServer{
     onReceive(callback: (clientId: string, payload: NetworkPayload) => void): void {
         this.receiveCallback = callback;
     }
-    async broadcast(payload: NetworkPayload, excludeClienteId?: string): Promise<void> {
+    async broadcast(payload: NetworkPayload, excludeClientId?: string): Promise<void> {
         const text = JSON.stringify(payload);
         for (const [id,socket] of this.clients.entries()){
-            if(id!==excludeClienteId && socket.readyState === WebSocket.OPEN){
+            if(id!==excludeClientId && socket.readyState === WebSocket.OPEN){
                 socket.send(text);
             }
         }
