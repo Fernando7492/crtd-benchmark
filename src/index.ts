@@ -8,6 +8,8 @@ import { StateStrategy } from "./core/strategy/StateStrategy.js";
 import type { SyncStrategy } from "./core/strategy/types.js";
 import { WebSocketClient } from "./network/adapters/webSocketClient.js";
 import { WebSocketServer } from "./network/adapters/webSocketServer.js";
+import { TcpClient } from "./network/adapters/tcpRawClient.js";
+import { TcpServer } from "./network/adapters/tcpRawServer.js";
 import type { INetworkClient } from "./network/INetworkClient.js";
 import type { INetworkServer } from "./network/INetworkServer.js";
 import { DocumentRepository } from "./repository/DocumentRepository.js";
@@ -18,6 +20,7 @@ import type { Identifier } from "./core/types.js";
 
 interface BenchmarkMetrics {
     strategy: string;
+    protocol: string;
     bots: number;
     latency: number;
     jitter: number;
@@ -39,9 +42,11 @@ async function runBenchmark(
     const docId = doc.id;
 
     let networkServer: INetworkServer;
-    
+
     if (protocolType === "WS") {
         networkServer = new WebSocketServer();
+    } else if (protocolType === "TCP_RAW") {
+        networkServer = new TcpServer();
     } else {
         throw new Error(`Protocol ${protocolType} not implemented`);
     }
@@ -61,7 +66,7 @@ async function runBenchmark(
     const originalBroadcast = networkServer.broadcast.bind(networkServer);
     networkServer.broadcast = async (payload: any, excludeClientId?: string) => {
         const bytes = Buffer.byteLength(JSON.stringify(payload));
-        const recipients = botCount - 1; 
+        const recipients = botCount - 1;
         totalNetworkBytes += bytes * recipients;
         totalMessages += recipients;
         return originalBroadcast(payload, excludeClientId);
@@ -91,6 +96,8 @@ async function runBenchmark(
         let baseClient: INetworkClient;
         if (protocolType === "WS") {
             baseClient = new WebSocketClient();
+        } else if (protocolType === "TCP_RAW") {
+            baseClient = new TcpClient();
         } else {
             throw new Error(`Protocol ${protocolType} not implemented`);
         }
@@ -103,7 +110,8 @@ async function runBenchmark(
         );
 
         const clientManager = new ClientManager(testClient, botStrategy);
-        await clientManager.connect("ws://localhost:8080");
+        const connectUrl = protocolType === "WS" ? "ws://localhost:8080" : "tcp://localhost:8080";
+        await clientManager.connect(connectUrl);
 
         botEntries.push({ manager: clientManager, rga: botRga, strategy: botStrategy, id: botId });
     }
@@ -175,6 +183,7 @@ async function runBenchmark(
         await bot.manager.disconnect();
     }
     await serverManager.stop();
+    await repo.disconnect();
 
     const rawDataStr = serverRga.toArray().join('');
     const rawDataBytes = Buffer.byteLength(rawDataStr);
@@ -183,6 +192,7 @@ async function runBenchmark(
 
     return {
         strategy: strategyType,
+        protocol: protocolType,
         bots: botCount,
         latency: chaosConfig.latency,
         jitter: chaosConfig.jitter,
@@ -196,37 +206,33 @@ async function runBenchmark(
 
 async function runAllTests() {
     const csvFile = "resultados_benchmark.csv";
-    
+
     if (!fs.existsSync(csvFile)) {
-        fs.writeFileSync(csvFile, "Strategy,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
+        fs.writeFileSync(csvFile, "Strategy,Protocol,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
-    const scenarios: Array<{ bots: number, strategy: 'STATE'|'OPERATION'|'DELTA', latency: number, jitter: number }> = [
-        { bots: 1, strategy: 'STATE', latency: 50, jitter: 100 },
-        { bots: 1, strategy: 'OPERATION', latency: 50, jitter: 100 },
-        { bots: 1, strategy: 'DELTA', latency: 50, jitter: 100 },
-        { bots: 5, strategy: 'STATE', latency: 50, jitter: 100 },
-        { bots: 5, strategy: 'OPERATION', latency: 50, jitter: 100 },
-        { bots: 5, strategy: 'DELTA', latency: 50, jitter: 100 },
-        { bots: 10, strategy: 'STATE', latency: 50, jitter: 100 },
-        { bots: 10, strategy: 'OPERATION', latency: 50, jitter: 100 },
-        { bots: 10, strategy: 'DELTA', latency: 50, jitter: 100 },
-        { bots: 50, strategy: 'STATE', latency: 50, jitter: 100 },
-        { bots: 50, strategy: 'OPERATION', latency: 50, jitter: 100 },
-        { bots: 50, strategy: 'DELTA', latency: 50, jitter: 100 },
-        { bots: 500, strategy: 'STATE', latency: 50, jitter: 100 },
-        { bots: 500, strategy: 'OPERATION', latency: 50, jitter: 100 },
-        { bots: 500, strategy: 'DELTA', latency: 50, jitter: 100 },
-    ];
+    const protocols: Array<'WS' | 'TCP_RAW'> = ['WS', 'TCP_RAW'];
+    const botCounts = [1, 5, 10, 50, 500, 1000];
+    const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
+
+    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW', latency: number, jitter: number }> = [];
+
+    for (const protocol of protocols) {
+        for (const bots of botCounts) {
+            for (const strategy of strategies) {
+                scenarios.push({ bots, strategy, protocol, latency: 50, jitter: 100 });
+            }
+        }
+    }
 
     for (const scenario of scenarios) {
-        process.stdout.write(`Rodando ${scenario.strategy} com ${scenario.bots} bots (Jitter: ${scenario.jitter}ms)... `);
-        
+        process.stdout.write(`Rodando [${scenario.protocol}] ${scenario.strategy} com ${scenario.bots} bots (Jitter: ${scenario.jitter}ms)... `);
+
         try {
-            const metrics = await runBenchmark(scenario.bots, scenario.strategy, 'WS', { latency: scenario.latency, jitter: scenario.jitter });
-            
-            const csvLine = `${metrics.strategy},${metrics.bots},${metrics.latency},${metrics.jitter},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
-            
+            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, { latency: scenario.latency, jitter: scenario.jitter });
+
+            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.bots},${metrics.latency},${metrics.jitter},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+
             fs.appendFileSync(csvFile, csvLine);
             console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
         } catch (error) {
