@@ -1,13 +1,11 @@
-export type { IDocumentRepository, DocumentModel, DocumentEventModel } from "./IDocumentRepository.js";
-export { PostgresDocumentRepository } from "./postgres/DocumentRepository.js";
-export { MongoDocumentRepository } from "./mongo/DocumentRepository.js";
-
-export type DatabaseType = "postgres" | "mongo";
-
+import process from "process";
 import type { IDocumentRepository } from "./IDocumentRepository.js";
 import { PostgresDocumentRepository } from "./postgres/DocumentRepository.js";
 import { MongoDocumentRepository } from "./mongo/DocumentRepository.js";
-import process from "process";
+
+export type { IDocumentRepository, DocumentModel, DocumentEventModel } from "./IDocumentRepository.js";
+export { PostgresDocumentRepository, MongoDocumentRepository };
+export type DatabaseType = "postgres" | "mongo";
 
 export function createDocumentRepository(
   type: DatabaseType

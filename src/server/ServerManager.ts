@@ -1,11 +1,11 @@
 import type { SyncStrategy } from "../core/strategy/types.js";
 import type{ INetworkServer } from "../network/INetworkServer.js";
 import type { NetworkPayload } from "../network/types.js";
-import type { DocumentRepository } from "../repository/DocumentRepository.js";
+import type { IDocumentRepository } from "../repository/IDocumentRepository.js";
 export class ServerManager<T>{
     constructor(
         private networkServer: INetworkServer,
-        private documentRepository: DocumentRepository,
+        private documentRepository: IDocumentRepository,
         private syncStrategy: SyncStrategy<T>,
         private documentId: string 
     ){

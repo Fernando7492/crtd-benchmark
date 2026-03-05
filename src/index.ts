@@ -12,7 +12,7 @@ import { TcpClient } from "./network/adapters/tcpRawClient.js";
 import { TcpServer } from "./network/adapters/tcpRawServer.js";
 import type { INetworkClient } from "./network/INetworkClient.js";
 import type { INetworkServer } from "./network/INetworkServer.js";
-import { DocumentRepository } from "./repository/DocumentRepository.js";
+import { createDocumentRepository } from "./repository/index.js";
 import { ClientManager } from "./server/ClientManager.js";
 import { ServerManager } from "./server/ServerManager.js";
 import { ChaosNetworkClient } from "./simulation/ChaosNetworkClient.js";
@@ -37,7 +37,7 @@ async function runBenchmark(
     protocolType: 'WS' | 'TCP_RAW' | 'WEB_TRANSPORT',
     chaosConfig: { latency: number; jitter: number }
 ): Promise<BenchmarkMetrics> {
-    const repo = new DocumentRepository();
+    const repo = createDocumentRepository("postgres");
     const doc = await repo.createDocument("Benchmark Stress Test");
     const docId = doc.id;
 
