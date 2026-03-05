@@ -1,6 +1,6 @@
 # CRDT Benchmark - Replicated Growable Array (RGA)
 
-Este projeto implementa um am biente de teste de estresse para um algoritmo CRDT (Replicated Growable Array), focado em avaliar a resiliência e o consumo de recursos sob condições de rede assíncronas e caóticas.
+Este projeto implementa um ambiente de teste de estresse para um algoritmo CRDT (Replicated Growable Array), focado em avaliar a resiliência e o consumo de recursos sob condições de rede assíncronas e caóticas.
 
 ## Estrutura  do Teste
 
@@ -30,8 +30,8 @@ docker compose up -d
 3. Instalação e Banco de Dados
 Instale as dependências e construa as tabelas do Prisma:
 npm install
-npx prisma generate
-npx prisma db push --accept-data-loss
+npx prisma generate --schema ./src/prisma/schema.prisma
+npx prisma db push --accept-data-loss --schema ./src/prisma/schema.prisma
 
 ## Execução
 
