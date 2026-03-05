@@ -7,6 +7,7 @@ export class DeltaStrategy<T> implements SyncStrategy<DeltaPayload<T>>{
     
     private rga: RGA<T>;
     private syncedIds: Set<string>;
+    public readonly strategyName: string = "DELTA";
 
     constructor(rga: RGA<T>){
         this.rga = rga;
