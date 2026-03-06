@@ -12,6 +12,8 @@ import { TcpClient } from "./network/adapters/tcpRawClient.js";
 import { TcpServer } from "./network/adapters/tcpRawServer.js";
 import { GrpcClient } from "./network/adapters/grpcClient.js";
 import { GrpcServer } from "./network/adapters/grpcServer.js";
+import { WebTransportClient } from "./network/adapters/webTransportClient.js";
+import { WebTransportServer } from "./network/adapters/webTransportServer.js";
 import type { INetworkClient } from "./network/INetworkClient.js";
 import type { INetworkServer } from "./network/INetworkServer.js";
 import { createDocumentRepository } from "./repository/index.js";
@@ -37,7 +39,7 @@ interface BenchmarkMetrics {
 async function runBenchmark(
     botCount: number,
     strategyType: 'STATE' | 'OPERATION' | 'DELTA',
-    protocolType: 'WS' | 'TCP_RAW' | 'GRPC',
+    protocolType: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
     databaseType: 'postgres' | 'mongo',
     chaosConfig: { latency: number; jitter: number }
 ): Promise<BenchmarkMetrics> {
@@ -53,6 +55,8 @@ async function runBenchmark(
         networkServer = new TcpServer();
     } else if (protocolType === "GRPC") {
         networkServer = new GrpcServer();
+    } else if (protocolType === "WT") {
+        networkServer = new WebTransportServer();
     } else {
         throw new Error(`Protocol ${protocolType} not implemented`);
     }
@@ -106,6 +110,8 @@ async function runBenchmark(
             baseClient = new TcpClient();
         } else if (protocolType === "GRPC") {
             baseClient = new GrpcClient();
+        } else if (protocolType === "WT") {
+            baseClient = new WebTransportClient();
         } else {
             throw new Error(`Protocol ${protocolType} not implemented`);
         }
@@ -118,7 +124,7 @@ async function runBenchmark(
         );
 
         const clientManager = new ClientManager(testClient, botStrategy);
-        const connectUrl = protocolType === "WS" ? "ws://localhost:8080" : protocolType === "GRPC" ? "grpc://localhost:8080" : "tcp://localhost:8080";
+        const connectUrl = protocolType === "WS" ? "ws://localhost:8080" : protocolType === "GRPC" ? "grpc://localhost:8080" : protocolType === "WT" ? "webtransport://localhost:8080" : "tcp://localhost:8080";
         await clientManager.connect(connectUrl);
 
         botEntries.push({ manager: clientManager, rga: botRga, strategy: botStrategy, id: botId });
@@ -190,7 +196,6 @@ async function runBenchmark(
     for (const bot of botEntries) {
         await bot.manager.disconnect();
     }
-    await new Promise(resolve => setTimeout(resolve, 2000));
     await serverManager.stop();
     await repo.disconnect();
 
@@ -221,12 +226,12 @@ async function runAllTests() {
         fs.writeFileSync(csvFile, "Strategy,Protocol,Database,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
-    const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC'> = ['WS', 'TCP_RAW', 'GRPC'];
+    const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
     const databases: Array<'postgres' | 'mongo'> = ['postgres', 'mongo'];
-    const botCounts = [1, 5, 10, 50, 500, 1000];
+    const botCounts = [1, 5, 10, 50, 100];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
 
-    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC', database: 'postgres' | 'mongo', latency: number, jitter: number }> = [];
+    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres' | 'mongo', latency: number, jitter: number }> = [];
 
     for (const protocol of protocols) {
         for (const database of databases) {
