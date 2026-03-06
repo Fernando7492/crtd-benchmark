@@ -3,6 +3,7 @@ import type{ INetworkServer } from "../network/INetworkServer.js";
 import type { NetworkPayload } from "../network/types.js";
 import type { IDocumentRepository } from "../repository/IDocumentRepository.js";
 export class ServerManager<T>{
+    private pendingSaves: Promise<any>[]=[];
     constructor(
         private networkServer: INetworkServer,
         private documentRepository: IDocumentRepository,
@@ -19,14 +20,22 @@ export class ServerManager<T>{
 
     private async handleIncomingMessage(clientId: string, payload: NetworkPayload){
         this.syncStrategy.applyPayload(payload as T);
-         await this.documentRepository.saveEvent(
+        const savePromise = this.documentRepository.saveEvent(
                 this.documentId,
                 this.syncStrategy.strategyName,
-                payload);
+                payload).catch(console.error);
+        
+        const trackedPromise = savePromise.finally(() => {
+            const index = this.pendingSaves.indexOf(trackedPromise);
+            if (index > -1) this.pendingSaves.splice(index, 1);
+        });
+        
+        this.pendingSaves.push(trackedPromise);
         await this.networkServer.broadcast(payload, clientId)
     }
 
     public async stop(){
+        await Promise.all(this.pendingSaves);
         await this.networkServer.stop()
     }
 }

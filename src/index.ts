@@ -180,12 +180,23 @@ async function runBenchmark(
 
     await (async function waitForConvergence() {
         while (true) {
-            const serverRawStateStr = JSON.stringify(serverRga.getRawState());
-            const serverNodesCount = serverRga.getRawState().length;
+            const serverRawState = serverRga.getRawState();
+            const serverNodesCount = serverRawState.length;
 
             if (serverNodesCount === totalInsertions) {
-                const allBotsSynced = botEntries.every(b => JSON.stringify(b.rga.getRawState()) === serverRawStateStr);
-                if (allBotsSynced) break;
+                let allSynced = true;
+                for (const bot of botEntries) {
+                    if (bot.rga.getRawState().length !== totalInsertions) {
+                        allSynced = false;
+                        break;
+                    }
+                }
+
+                if (allSynced) {
+                    const serverRawStateStr = JSON.stringify(serverRawState);
+                    allSynced = botEntries.every(b => JSON.stringify(b.rga.getRawState()) === serverRawStateStr);
+                    if (allSynced) break;
+                }
             }
             await new Promise(r => setTimeout(r, 50));
         }
@@ -228,7 +239,7 @@ async function runAllTests() {
 
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
     const databases: Array<'postgres' | 'mongo'> = ['postgres', 'mongo'];
-    const botCounts = [1, 5, 10, 50, 100];
+    const botCounts = [1, 5, 10, 50, 500, 1000];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
 
     const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres' | 'mongo', latency: number, jitter: number }> = [];

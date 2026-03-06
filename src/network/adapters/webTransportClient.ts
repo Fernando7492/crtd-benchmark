@@ -86,9 +86,11 @@ export class WebTransportClient implements INetworkClient {
   async disconnect(): Promise<void> {
     if (this.transport) {
       try {
-        await this.writer?.close();
+        if (this.writer) {
+          await this.writer.ready;
+          await this.writer.close();
+        }
       } catch {
-        // ignora erro ao fechar writer
       }
       this.transport.close();
       this.transport = null;

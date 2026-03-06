@@ -46,7 +46,6 @@ export class WebTransportServer implements INetworkServer {
 
       const clientId = randomUUID();
 
-      // Aguarda o primeiro stream bidirecional aberto pelo cliente
       const bidiReader = session.incomingBidirectionalStreams.getReader() as ReadableStreamDefaultReader<any>;
       const { value: stream } = await bidiReader.read();
       bidiReader.releaseLock();
@@ -76,7 +75,6 @@ export class WebTransportServer implements INetworkServer {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Junta fragmentos de stream e separa por quebra de linha (mesmo padrão do TCP)
         buffer += decoder.decode(value, { stream: true });
         const messages = buffer.split("\n");
         buffer = messages.pop() ?? "";
@@ -103,12 +101,14 @@ export class WebTransportServer implements INetworkServer {
   async broadcast(payload: NetworkPayload, excludeClientId?: string): Promise<void> {
     const text = JSON.stringify(payload) + "\n";
     const data = new TextEncoder().encode(text);
+    const promises: Promise<void>[] = [];
 
     for (const [id, writer] of this.clients.entries()) {
       if (id !== excludeClientId) {
-        await writer.write(data);
+        promises.push(writer.write(data));
       }
     }
+    await Promise.all(promises);
   }
 
   async stop(): Promise<void> {
