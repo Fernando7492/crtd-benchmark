@@ -190,6 +190,7 @@ async function runBenchmark(
     for (const bot of botEntries) {
         await bot.manager.disconnect();
     }
+    await new Promise(resolve => setTimeout(resolve, 2000));
     await serverManager.stop();
     await repo.disconnect();
 
