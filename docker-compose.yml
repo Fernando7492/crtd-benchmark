@@ -11,24 +11,5 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  mongo:
-    image: mongo:7-jammy
-    container_name: benchmark_mongo
-    ports:
-      - "27017:27017"
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    volumes:
-      - mongo_data:/data/db
-
-  mongo_setup:
-    image: mongo:7-jammy
-    container_name: mongo_setup
-    depends_on:
-      - mongo
-    restart: "no"
-    command: >
-      bash -c "sleep 5 && mongosh --host benchmark_mongo:27017 --eval 'try { rs.status(); } catch (err) { rs.initiate({ _id: \"rs0\", members: [{ _id: 0, host: \"127.0.0.1:27017\" }] }); }'"
 volumes:
   postgres_data:
-  mongo_data:
-    

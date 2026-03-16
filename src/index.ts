@@ -40,7 +40,7 @@ async function runBenchmark(
     botCount: number,
     strategyType: 'STATE' | 'OPERATION' | 'DELTA',
     protocolType: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
-    databaseType: 'postgres' | 'mongo',
+    databaseType: 'postgres',
     chaosConfig: { latency: number; jitter: number }
 ): Promise<BenchmarkMetrics> {
     const repo = createDocumentRepository(databaseType);
@@ -238,11 +238,12 @@ async function runAllTests() {
     }
 
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
-    const databases: Array<'postgres' | 'mongo'> = ['postgres', 'mongo'];
     const botCounts = [1, 5, 10, 50, 500, 1000];
+    const databases: Array<'postgres'> = ['postgres'];
+    const botCounts = [1, 5, 10, 50];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
 
-    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres' | 'mongo', latency: number, jitter: number }> = [];
+    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres', latency: number, jitter: number }> = [];
 
     for (const protocol of protocols) {
         for (const database of databases) {
