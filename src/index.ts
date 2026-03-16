@@ -240,7 +240,6 @@ async function runAllTests() {
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
     const botCounts = [1, 5, 10, 50, 500, 1000];
     const databases: Array<'postgres'> = ['postgres'];
-    const botCounts = [1, 5, 10, 50];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
 
     const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres', latency: number, jitter: number }> = [];
