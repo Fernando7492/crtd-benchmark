@@ -252,46 +252,36 @@ async function runAllTests() {
         { label: 'INTERCONTINENTAL', minLatency: 1000, maxLatency: 2000 },
     ];
 
-    const scenarios: Array<{
-        bots: number,
-        strategy: 'STATE' | 'OPERATION' | 'DELTA',
-        protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
-        database: 'postgres',
-        latency: { label: string; minLatency: number; maxLatency: number }
-    }> = [];
-
-    for (const protocol of protocols) {
-        for (const database of databases) {
-            for (const bots of botCounts) {
-                for (const strategy of strategies) {
-                    for (const latency of latencyScenarios) {
-                        scenarios.push({ bots, strategy, protocol, database, latency });
-                    }
-                }
-            }
-        }
-    }
-
     const totalRounds = 20;
 
     for (let round = 1; round <= totalRounds; round++) {
         console.log(`\n=== RODADA ${round}/${totalRounds} ===`);
 
-        for (const scenario of scenarios) {
-            process.stdout.write(`[R${round}] [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Latencia: ${scenario.latency.label})... `);
+        for (const protocol of protocols) {
+            for (const database of databases) {
+                for (const bots of botCounts) {
+                    for (const strategy of strategies) {
+                        for (const latency of latencyScenarios) {
+                            process.stdout.write(`[R${round}] [${protocol}] [${database}] ${strategy} com ${bots} bots (Latencia: ${latency.label})... `);
 
-            try {
-                const metrics = await runBenchmark(round, scenario.bots, scenario.strategy, scenario.protocol, scenario.database, scenario.latency);
+                            try {
+                                const metrics = await runBenchmark(round, bots, strategy, protocol, database, latency);
 
-                const csvLine = `${metrics.round},${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latencyScenario},${metrics.minLatency},${metrics.maxLatency},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+                                const csvLine = `${metrics.round},${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latencyScenario},${metrics.minLatency},${metrics.maxLatency},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
 
-                fs.appendFileSync(csvFile, csvLine);
-                console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
-            } catch (error) {
-                console.log(`FALHA`);
-                console.error(error);
+                                fs.appendFileSync(csvFile, csvLine);
+                                console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
+                            } catch (error) {
+                                console.log(`FALHA`);
+                                console.error(error);
+                            }
+                        }
+                    }
+                }
             }
 
+            // Intervalo entre grupos de protocolo para estabilização de CPU/memória
+            console.log(`\n[Aguardando 10s para estabilização após grupo ${protocol}...]`);
             await new Promise(r => setTimeout(r, 10_000));
         }
     }
