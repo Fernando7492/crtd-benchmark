@@ -1,13 +1,41 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: benchmark_app
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://admin:password123@database:5432/crdt_benchmark?schema=public
+      WT_CERT_PATH: /app/certs/cert.pem
+      WT_KEY_PATH: /app/certs/key.pem
+    command: >
+      sh -c "until npx prisma db push --accept-data-loss --schema ./src/prisma/schema.prisma; do
+      echo 'Aguardando banco de dados...';
+      sleep 2;
+      done;
+      node dist/index.js"
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./certs:/app/certs:ro
+
   database:
     image: postgres:16-alpine
     container_name: benchmark_db
     ports:
-      - "5432:5432"
+      - '5432:5432'
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password123
       POSTGRES_DB: crdt_benchmark
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U admin -d crdt_benchmark']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
