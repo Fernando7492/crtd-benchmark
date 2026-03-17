@@ -23,6 +23,7 @@ import { ChaosNetworkClient } from "./simulation/ChaosNetworkClient.js";
 import type { Identifier } from "./core/types.js";
 
 interface BenchmarkMetrics {
+    round: number;
     strategy: string;
     protocol: string;
     database: string;
@@ -38,6 +39,7 @@ interface BenchmarkMetrics {
 }
 
 async function runBenchmark(
+    round: number,
     botCount: number,
     strategyType: 'STATE' | 'OPERATION' | 'DELTA',
     protocolType: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
@@ -217,6 +219,7 @@ async function runBenchmark(
     const metadataOverheadBytes = memorySizeBytes - rawDataBytes;
 
     return {
+        round,
         strategy: strategyType,
         protocol: protocolType,
         database: databaseType,
@@ -236,7 +239,7 @@ async function runAllTests() {
     const csvFile = "resultados_benchmark.csv";
 
     if (!fs.existsSync(csvFile)) {
-        fs.writeFileSync(csvFile, "Strategy,Protocol,Database,Bots,LatencyScenario,MinLatency,MaxLatency,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
+        fs.writeFileSync(csvFile, "Round,Strategy,Protocol,Database,Bots,LatencyScenario,MinLatency,MaxLatency,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
@@ -269,22 +272,28 @@ async function runAllTests() {
         }
     }
 
-    for (const scenario of scenarios) {
-        process.stdout.write(`Rodando [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Latencia: ${scenario.latency.label})... `);
+    const totalRounds = 20;
 
-        try {
-            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, scenario.database, scenario.latency);
+    for (let round = 1; round <= totalRounds; round++) {
+        console.log(`\n=== RODADA ${round}/${totalRounds} ===`);
 
-            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latencyScenario},${metrics.minLatency},${metrics.maxLatency},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+        for (const scenario of scenarios) {
+            process.stdout.write(`[R${round}] [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Latencia: ${scenario.latency.label})... `);
 
-            fs.appendFileSync(csvFile, csvLine);
-            console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
-        } catch (error) {
-            console.log(`FALHA`);
-            console.error(error);
+            try {
+                const metrics = await runBenchmark(round, scenario.bots, scenario.strategy, scenario.protocol, scenario.database, scenario.latency);
+
+                const csvLine = `${metrics.round},${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latencyScenario},${metrics.minLatency},${metrics.maxLatency},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+
+                fs.appendFileSync(csvFile, csvLine);
+                console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
+            } catch (error) {
+                console.log(`FALHA`);
+                console.error(error);
+            }
+
+            await new Promise(r => setTimeout(r, 10_000));
         }
-
-        await new Promise(r => setTimeout(r, 10_000));
     }
 
     console.log("\nTodos os testes finalizados. Verifique o arquivo resultados_benchmark.csv");
