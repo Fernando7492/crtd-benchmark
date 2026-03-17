@@ -27,8 +27,9 @@ interface BenchmarkMetrics {
     protocol: string;
     database: string;
     bots: number;
-    latency: number;
-    jitter: number;
+    latencyScenario: string;
+    minLatency: number;
+    maxLatency: number;
     convergenceTimeMs: number;
     totalMessages: number;
     networkBytes: number;
@@ -41,7 +42,7 @@ async function runBenchmark(
     strategyType: 'STATE' | 'OPERATION' | 'DELTA',
     protocolType: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
     databaseType: 'postgres',
-    chaosConfig: { latency: number; jitter: number }
+    chaosConfig: { label: string; minLatency: number; maxLatency: number }
 ): Promise<BenchmarkMetrics> {
     const repo = createDocumentRepository(databaseType);
     const doc = await repo.createDocument("Benchmark Stress Test");
@@ -119,8 +120,8 @@ async function runBenchmark(
         const testClient = new ChaosNetworkClient(
             baseClient,
             `seed-${botId}`,
-            chaosConfig.latency,
-            chaosConfig.jitter
+            chaosConfig.minLatency,
+            chaosConfig.maxLatency
         );
 
         const clientManager = new ClientManager(testClient, botStrategy);
@@ -220,8 +221,9 @@ async function runBenchmark(
         protocol: protocolType,
         database: databaseType,
         bots: botCount,
-        latency: chaosConfig.latency,
-        jitter: chaosConfig.jitter,
+        latencyScenario: chaosConfig.label,
+        minLatency: chaosConfig.minLatency,
+        maxLatency: chaosConfig.maxLatency,
         convergenceTimeMs: endTime - startTime,
         totalMessages: totalMessages,
         networkBytes: totalNetworkBytes,
@@ -234,33 +236,46 @@ async function runAllTests() {
     const csvFile = "resultados_benchmark.csv";
 
     if (!fs.existsSync(csvFile)) {
-        fs.writeFileSync(csvFile, "Strategy,Protocol,Database,Bots,Latency,Jitter,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
+        fs.writeFileSync(csvFile, "Strategy,Protocol,Database,Bots,LatencyScenario,MinLatency,MaxLatency,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
-    const botCounts = [1, 5, 10, 50, 500, 1000];
+    const botCounts = [1, 10, 50, 100];
     const databases: Array<'postgres'> = ['postgres'];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
+    const latencyScenarios = [
+        { label: 'LOCAL',   minLatency: 0,    maxLatency: 0    },
+        { label: 'REGIONAL',        minLatency: 900,  maxLatency: 1000 },
+        { label: 'INTERCONTINENTAL', minLatency: 1000, maxLatency: 2000 },
+    ];
 
-    const scenarios: Array<{ bots: number, strategy: 'STATE' | 'OPERATION' | 'DELTA', protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT', database: 'postgres', latency: number, jitter: number }> = [];
+    const scenarios: Array<{
+        bots: number,
+        strategy: 'STATE' | 'OPERATION' | 'DELTA',
+        protocol: 'WS' | 'TCP_RAW' | 'GRPC' | 'WT',
+        database: 'postgres',
+        latency: { label: string; minLatency: number; maxLatency: number }
+    }> = [];
 
     for (const protocol of protocols) {
         for (const database of databases) {
             for (const bots of botCounts) {
                 for (const strategy of strategies) {
-                    scenarios.push({ bots, strategy, protocol, database, latency: 50, jitter: 100 });
+                    for (const latency of latencyScenarios) {
+                        scenarios.push({ bots, strategy, protocol, database, latency });
+                    }
                 }
             }
         }
     }
 
     for (const scenario of scenarios) {
-        process.stdout.write(`Rodando [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Jitter: ${scenario.jitter}ms)... `);
+        process.stdout.write(`Rodando [${scenario.protocol}] [${scenario.database}] ${scenario.strategy} com ${scenario.bots} bots (Latencia: ${scenario.latency.label})... `);
 
         try {
-            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, scenario.database, { latency: scenario.latency, jitter: scenario.jitter });
+            const metrics = await runBenchmark(scenario.bots, scenario.strategy, scenario.protocol, scenario.database, scenario.latency);
 
-            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latency},${metrics.jitter},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
+            const csvLine = `${metrics.strategy},${metrics.protocol},${metrics.database},${metrics.bots},${metrics.latencyScenario},${metrics.minLatency},${metrics.maxLatency},${metrics.convergenceTimeMs.toFixed(2)},${metrics.totalMessages},${metrics.networkBytes},${metrics.memorySizeByes},${metrics.metadataOverheadBytes}\n`;
 
             fs.appendFileSync(csvFile, csvLine);
             console.log(`OK (${metrics.convergenceTimeMs.toFixed(2)}ms)`);
@@ -268,6 +283,8 @@ async function runAllTests() {
             console.log(`FALHA`);
             console.error(error);
         }
+
+        await new Promise(r => setTimeout(r, 10_000));
     }
 
     console.log("\nTodos os testes finalizados. Verifique o arquivo resultados_benchmark.csv");

@@ -7,20 +7,20 @@ export class ChaosNetworkClient implements INetworkClient{
     private timeList = new Set<NodeJS.Timeout>();
 
     constructor(
-        private realNetworkClient: INetworkClient, 
+        private realNetworkClient: INetworkClient,
         private seed: string,
-        private baseLatency: number = 0, 
-        private jitter:number = 100
-    )
-        {
-        this.prng = seedrandom(seed);
+        private minLatency: number = 0,
+        private maxLatency: number = 0
+    ) {
+        this.prng = seedrandom(this.seed);
     }
 
     connect(connectUrl: string): Promise<void> {
         return this.realNetworkClient.connect(connectUrl);
     }
     send(payload: NetworkPayload): Promise<void> {
-        const delay = this.baseLatency + (Math.floor(this.prng() * this.jitter));
+        const range = this.maxLatency - this.minLatency;
+        const delay = this.minLatency + (range > 0 ? Math.floor(this.prng() * (range + 1)) : 0);
         const timeout = setTimeout(()=>{
             this.realNetworkClient.send(payload)
             .catch(console.error)

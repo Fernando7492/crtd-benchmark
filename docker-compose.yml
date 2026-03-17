@@ -21,6 +21,11 @@ services:
       - '8080:8080'
     volumes:
       - ./certs:/app/certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
 
   database:
     image: postgres:16-alpine
@@ -38,6 +43,11 @@ services:
       retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
 
 volumes:
   postgres_data:
