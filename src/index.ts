@@ -235,24 +235,36 @@ async function runBenchmark(
     };
 }
 
+function formatDuration(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}h ${minutes}m ${seconds}s`;
+}
+
 async function runAllTests() {
-    const csvFile = "resultados_benchmark.csv";
+    const outputDir = "resultados";
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+    const csvFile = `${outputDir}/resultados_benchmark.csv`;
 
     if (!fs.existsSync(csvFile)) {
         fs.writeFileSync(csvFile, "Round,Strategy,Protocol,Database,Bots,LatencyScenario,MinLatency,MaxLatency,ConvergenceTimeMs,TotalMessages,NetworkBytes,MemorySizeBytes,MetadataOverheadBytes\n");
     }
 
     const protocols: Array<'WS' | 'TCP_RAW' | 'GRPC' | 'WT'> = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
-    const botCounts = [1, 10, 50, 100];
+    const botCounts = [1, 100, 500, 1000];
     const databases: Array<'postgres'> = ['postgres'];
     const strategies: Array<'STATE' | 'OPERATION' | 'DELTA'> = ['STATE', 'OPERATION', 'DELTA'];
     const latencyScenarios = [
-        { label: 'LOCAL',   minLatency: 0,    maxLatency: 0    },
-        { label: 'REGIONAL',        minLatency: 900,  maxLatency: 1000 },
+        { label: 'LOCAL',            minLatency: 0,    maxLatency: 0    },
+        { label: 'REGIONAL',         minLatency: 900,  maxLatency: 1000 },
         { label: 'INTERCONTINENTAL', minLatency: 1000, maxLatency: 2000 },
     ];
 
     const totalRounds = 20;
+
+    const globalStart = Date.now();
 
     for (let round = 1; round <= totalRounds; round++) {
         console.log(`\n=== RODADA ${round}/${totalRounds} ===`);
@@ -262,7 +274,7 @@ async function runAllTests() {
                 for (const bots of botCounts) {
                     for (const strategy of strategies) {
                         for (const latency of latencyScenarios) {
-                            process.stdout.write(`[R${round}] [${protocol}] [${database}] ${strategy} com ${bots} bots (Latencia: ${latency.label})... `);
+                            process.stdout.write(`[R${round}] [${protocol}] [${database}] ${strategy} com ${bots} bots (Latencia ${latency.label}: ${latency.minLatency}-${latency.maxLatency}ms)... `);
 
                             try {
                                 const metrics = await runBenchmark(round, bots, strategy, protocol, database, latency);
@@ -286,7 +298,8 @@ async function runAllTests() {
         }
     }
 
-    console.log("\nTodos os testes finalizados. Verifique o arquivo resultados_benchmark.csv");
+    const totalElapsed = Date.now() - globalStart;
+    console.log(`\nTodos os testes finalizados em ${formatDuration(totalElapsed)}. Verifique o arquivo resultados_benchmark.csv`);
     process.exit(0);
 }
 

@@ -140,3 +140,6 @@ vite.config.ts.timestamp-*
 
 # Prisma migration files
 src/prisma/migrations/
+
+# CRDTs Benchmark output files
+output/*.csv

@@ -21,11 +21,12 @@ services:
       - '8080:8080'
     volumes:
       - ./certs:/app/certs:ro
+      - ./resultados:/app/resultados
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
+          cpus: '1.0'
+          memory: 512M
 
   database:
     image: postgres:16-alpine
