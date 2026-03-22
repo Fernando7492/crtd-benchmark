@@ -1,7 +1,5 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import seaborn as sns
 import os
 import sys
 
@@ -54,7 +52,7 @@ def save(fig: plt.Figure, name: str):
 
 def _lineplot_grid(df: pd.DataFrame, y_col: str, y_label: str, row_col: str, col_col: str,
                    hue_col: str, colors: dict, markers: dict, labels: dict,
-                   row_labels: dict, col_labels: dict, filename: str, log_y: bool = False):
+                   row_labels: dict, col_labels: dict, filename: str):
     row_vals = df[row_col].cat.categories
     col_vals = df[col_col].cat.categories
     nrows, ncols = len(row_vals), len(col_vals)
@@ -80,12 +78,6 @@ def _lineplot_grid(df: pd.DataFrame, y_col: str, y_label: str, row_col: str, col
                 ax.plot(mean.index, mean.values, color=colors[hv], marker=markers[hv],
                         markersize=4, linewidth=1.2, label=labels[hv])
                 ax.fill_between(mean.index, ci_lo.values, ci_hi.values, color=colors[hv], alpha=0.15)
-
-            if log_y:
-                ax.set_yscale("log")
-            ax.set_xscale("log", base=2)
-            ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
-            ax.xaxis.set_minor_formatter(ticker.NullFormatter())
 
             if r == nrows - 1:
                 ax.set_xlabel("Number of bots")
@@ -114,12 +106,6 @@ def fig01_convergence_by_protocol(df: pd.DataFrame):
                    row_labels=LATENCY_LABELS, col_labels=STRATEGY_LABELS,
                    filename="fig01_convergence_by_protocol.pdf")
 
-    _lineplot_grid(df, "ConvergenceTimeMs", "Convergence time (ms)",
-                   row_col="LatencyScenario", col_col="Strategy", hue_col="Protocol",
-                   colors=PROTOCOL_COLORS, markers=PROTOCOL_MARKERS, labels=PROTOCOL_LABELS,
-                   row_labels=LATENCY_LABELS, col_labels=STRATEGY_LABELS,
-                   filename="fig01_convergence_by_protocol_log.pdf", log_y=True)
-
 
 # ── Fig 2: Convergence by Strategy ──────────────────────────────────
 
@@ -129,12 +115,6 @@ def fig02_convergence_by_strategy(df: pd.DataFrame):
                    colors=STRATEGY_COLORS, markers=STRATEGY_MARKERS, labels=STRATEGY_LABELS,
                    row_labels=LATENCY_LABELS, col_labels=PROTOCOL_LABELS,
                    filename="fig02_convergence_by_strategy.pdf")
-
-    _lineplot_grid(df, "ConvergenceTimeMs", "Convergence time (ms)",
-                   row_col="LatencyScenario", col_col="Protocol", hue_col="Strategy",
-                   colors=STRATEGY_COLORS, markers=STRATEGY_MARKERS, labels=STRATEGY_LABELS,
-                   row_labels=LATENCY_LABELS, col_labels=PROTOCOL_LABELS,
-                   filename="fig02_convergence_by_strategy_log.pdf", log_y=True)
 
 
 # ── Fig 3: Network Overhead ─────────────────────────────────────────
@@ -159,43 +139,15 @@ def fig03_network_overhead(df: pd.DataFrame):
                     markersize=4, linewidth=1.2, label=STRATEGY_LABELS[s])
             ax.fill_between(mean.index, ci_lo.values, ci_hi.values, color=STRATEGY_COLORS[s], alpha=0.15)
 
-        ax.set_xscale("log", base=2)
-        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Number of bots")
         if i == 0:
             ax.set_ylabel("Network traffic (KB)")
         ax.annotate(LATENCY_LABELS[lat], xy=(0.5, 1.06), xycoords="axes fraction", ha="center", fontsize=9, fontweight="bold")
 
     handles, lbls = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, lbls, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.06))
-    fig.subplots_adjust(wspace=0.1)
+    fig.legend(handles, lbls, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.12))
+    fig.subplots_adjust(wspace=0.1, bottom=0.18)
     save(fig, "fig03_network_overhead.pdf")
-
-    # Log version
-    fig2, axes2 = plt.subplots(1, ncols, figsize=(3.2 * ncols, 2.8), sharey=True, squeeze=False)
-    for i, lat in enumerate(latencies):
-        ax = axes2[0][i]
-        subset = df[df["LatencyScenario"] == lat]
-        for s in STRATEGY_ORDER:
-            data = subset[subset["Strategy"] == s]
-            grouped = data.groupby("Bots")["NetworkBytes"]
-            mean = grouped.mean() / 1024
-            ci_lo = grouped.quantile(0.025) / 1024
-            ci_hi = grouped.quantile(0.975) / 1024
-            ax.plot(mean.index, mean.values, color=STRATEGY_COLORS[s], marker=STRATEGY_MARKERS[s],
-                    markersize=4, linewidth=1.2, label=STRATEGY_LABELS[s])
-            ax.fill_between(mean.index, ci_lo.values, ci_hi.values, color=STRATEGY_COLORS[s], alpha=0.15)
-        ax.set_xscale("log", base=2)
-        ax.set_yscale("log")
-        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
-        ax.set_xlabel("Number of bots")
-        if i == 0:
-            ax.set_ylabel("Network traffic (KB)")
-        ax.annotate(LATENCY_LABELS[lat], xy=(0.5, 1.06), xycoords="axes fraction", ha="center", fontsize=9, fontweight="bold")
-    handles, lbls = axes2[0][0].get_legend_handles_labels()
-    fig2.legend(handles, lbls, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.06))
-    fig2.subplots_adjust(wspace=0.1)
-    save(fig2, "fig03_network_overhead_log.pdf")
 
 
 # ── Fig 4: Memory Usage ─────────────────────────────────────────────
@@ -220,16 +172,14 @@ def fig04_memory_usage(df: pd.DataFrame):
                     markersize=4, linewidth=1.2, label=STRATEGY_LABELS[s])
             ax.fill_between(mean.index, ci_lo.values, ci_hi.values, color=STRATEGY_COLORS[s], alpha=0.15)
 
-        ax.set_xscale("log", base=2)
-        ax.xaxis.set_major_formatter(ticker.ScalarFormatter())
         ax.set_xlabel("Number of bots")
         if i == 0:
             ax.set_ylabel("Memory footprint (KB)")
         ax.annotate(LATENCY_LABELS[lat], xy=(0.5, 1.06), xycoords="axes fraction", ha="center", fontsize=9, fontweight="bold")
 
     handles, lbls = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, lbls, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.06))
-    fig.subplots_adjust(wspace=0.1)
+    fig.legend(handles, lbls, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.12))
+    fig.subplots_adjust(wspace=0.1, bottom=0.18)
     save(fig, "fig04_memory_usage.pdf")
 
 
