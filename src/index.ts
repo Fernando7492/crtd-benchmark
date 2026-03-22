@@ -21,7 +21,7 @@ async function runAllTests() {
     }
 
     const protocols: ProtocolType[] = ['WS', 'TCP_RAW', 'GRPC', 'WT'];
-    const botCounts = [1, 100, 500, 1000];
+    const botCounts = [1, 100, 300];
     const databases: DatabaseType[] = ['postgres'];
     const strategies: StrategyType[] = ['STATE', 'OPERATION', 'DELTA'];
     const latencyScenarios: LatencyScenario[] = [

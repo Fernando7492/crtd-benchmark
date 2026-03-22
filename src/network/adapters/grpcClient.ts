@@ -19,22 +19,46 @@ const CRDT_SYNC_SERVICE: grpc.ServiceDefinition = {
 
 const CrdtSyncClient = grpc.makeClientConstructor(CRDT_SYNC_SERVICE, "CrdtSync");
 
+// Pool de channels compartilhados com contagem de referência.
+// Todos os bots conectando no mesmo endereço reutilizam a mesma conexão HTTP/2,
+// aproveitando a multiplexação de streams nativa do protocolo.
+const channelPool = new Map<string, { stub: grpc.Client; refCount: number }>();
+
+function acquireChannel(address: string): grpc.Client {
+  const entry = channelPool.get(address);
+  if (entry) {
+    entry.refCount++;
+    return entry.stub;
+  }
+  const stub = new CrdtSyncClient(address, grpc.credentials.createInsecure());
+  channelPool.set(address, { stub, refCount: 1 });
+  return stub;
+}
+
+function releaseChannel(address: string): void {
+  const entry = channelPool.get(address);
+  if (!entry) return;
+  entry.refCount--;
+  if (entry.refCount <= 0) {
+    entry.stub.close();
+    channelPool.delete(address);
+  }
+}
+
 export class GrpcClient implements INetworkClient {
-  private stub: grpc.Client | null = null;
+  private address: string = "";
   private stream: grpc.ClientDuplexStream<string, string> | null = null;
   private receiveCallback: ((payload: NetworkPayload) => void) | null = null;
 
   connect(connectUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Aceita "grpc://localhost:8080" ou "localhost:8080"
-      const address = connectUrl.replace(/^grpc:\/\//, "");
+      this.address = connectUrl.replace(/^grpc:\/\//, "");
+      const stub = acquireChannel(this.address);
 
-      this.stub = new CrdtSyncClient(address, grpc.credentials.createInsecure());
-
-      this.stub.waitForReady(Date.now() + 5000, (err?: Error) => {
+      stub.waitForReady(Date.now() + 5000, (err?: Error) => {
         if (err) return reject(err);
 
-        this.stream = (this.stub as any).Sync() as grpc.ClientDuplexStream<string, string>;
+        this.stream = (stub as any).Sync() as grpc.ClientDuplexStream<string, string>;
 
         this.stream!.on("data", (message: string) => {
           if (this.receiveCallback) {
@@ -82,9 +106,9 @@ export class GrpcClient implements INetworkClient {
         this.stream.end();
         this.stream = null;
       }
-      if (this.stub) {
-        this.stub.close();
-        this.stub = null;
+      if (this.address) {
+        releaseChannel(this.address);
+        this.address = "";
       }
       resolve();
     });

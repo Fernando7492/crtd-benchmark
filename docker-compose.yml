@@ -22,11 +22,9 @@ services:
     volumes:
       - ./certs:/app/certs:ro
       - ./resultados:/app/resultados
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 8G
+    cpus: '4.0'
+    mem_limit: 8g
+    memswap_limit: 8g
 
   database:
     image: postgres:16-alpine
@@ -44,11 +42,9 @@ services:
       retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
+    cpus: '1.0'
+    mem_limit: 512m
+    memswap_limit: 512m
 
 volumes:
   postgres_data:
